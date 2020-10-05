@@ -79,13 +79,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Login to Docker Hub
-        env:
-          DOCKER_USER: ${{ secrets.HUB_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.HUB_PASSCODE }}
         run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | \
+          echo "${{ secrets.HUB_USERNAME }}" | \
           docker login \
-            --username "${{ secrets.DOCKER_USER }}" \
+            --username "${{ secrets.HUB_USERNAME }}" \
             --password-stdin
       - name: Pull source image
         run: docker pull "${DOCKER_IMAGE}:sha-${GITHUB_SHA}"
