@@ -80,7 +80,7 @@ jobs:
     steps:
       - name: Login to Docker Hub
         run: |
-          echo "${{ secrets.HUB_USERNAME }}" | \
+          echo "${{ secrets.HUB_PASSCODE }}" | \
           docker login \
             --username "${{ secrets.HUB_USERNAME }}" \
             --password-stdin
