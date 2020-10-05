@@ -1,0 +1,11 @@
+name: 'Supported Debian Linux Versions'
+description: 'Fetches the currently supported Debian Linux versions from Debian website'
+branding:
+  icon: 'list'
+  color: 'green'
+outputs:
+  versions:
+    description: 'JSON array with the supported versions'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
