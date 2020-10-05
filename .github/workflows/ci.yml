@@ -8,24 +8,98 @@ on:
       - master
   pull_request:
 jobs:
-  lint:
+  generate-ref:
+    name: Generate Ref
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
+    outputs:
+      REF: ${{ steps.generate-ref.outputs.ref }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v1
+      - id: generate-ref
+        name: Generate Ref
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ] ; then
+            ref=$(php -r "echo str_replace('/', '-SLASH-', '${{ github.event.pull_request.head.ref }}');")
+            echo "$ref"
+            printf "::set-output name=ref::%s" $ref
+            exit 0
+          fi
+          echo "${GITHUB_REF##*/}"
+          echo "::set-output name=ref::${GITHUB_REF##*/}"
+  lint-dockerfile:
+    name: Lint Dockerfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
       - name: Lint Dockerfile
         uses: docker://hadolint/hadolint:latest-debian
         with:
           entrypoint: hadolint
-          args: Dockerfile
-  build:
+          args: Dockerfile-build
+  fetch-versions:
+    name: Fetch Versions
     needs:
-      - lint
+      - lint-dockerfile
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     steps:
-      - uses: actions/checkout@v2
-      - run: docker build . -t "${DOCKER_IMAGE}:ci-latest"
+      - uses: actions/checkout@v1
+      - name: Fetch Versions
+        uses: ./
+        id: versions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          milestone: "v1.0.0"
+      - name: Show Versions
+        run: echo "${VERSIONS}"
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
+  build-docker-image:
+    name: Build Docker image
+    needs:
+      - fetch-versions
+      - generate-ref
+      - lint-dockerfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - run: docker version
       - run: docker images
+      - name: Install clair-scanner
+        run: |
+          sudo curl -L https://github.com/arminc/clair-scanner/releases/download/v8/clair-scanner_linux_amd64 -o /usr/local/bin/clair-scanner
+          sudo chmod +x /usr/local/bin/clair-scanner
+      - run: docker images
+      - run: mkdir -p $(echo "./clair/${DOCKER_IMAGE}:${REF}" | tr '[:upper:]' '[:lower:]')
+        env:
+          REF: ${{ needs.generate-ref.outputs.ref }}
+      - run: docker-compose -f .docker/security/docker-compose.yml -p clair-ci up -d
+      - run: docker build --no-cache -t "${DOCKER_IMAGE}:${REF}" . -f Dockerfile-build
+        env:
+          REF: ${{ needs.generate-ref.outputs.ref }}
+      - run: docker tag "${DOCKER_IMAGE}:${REF}" "${DOCKER_IMAGE}:sha-${GITHUB_SHA}"
+        env:
+          REF: ${{ needs.generate-ref.outputs.ref }}
+      - run: echo -e "${DOCKER_IMAGE}:${REF}" | xargs -I % sh -c 'clair-scanner --ip 172.17.0.1 -r "./clair/%.json" -l ./clair/clair.log % || (echo "% is vulnerable" && exit 1)'
+        env:
+          REF: ${{ needs.generate-ref.outputs.ref }}
+      - run: docker-compose -f .docker/security/docker-compose.yml -p clair-ci down
+      - run: docker images
+      - name: Login to Docker Hub
+        if: contains(github.ref, 'dependabot') == false
+        env:
+          DOCKER_USER: ${{ secrets.HUB_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.HUB_PASSCODE }}
+        run: |
+          echo "${{ secrets.HUB_PASSCODE }}" | \
+          docker login \
+            --username "${{ secrets.HUB_USERNAME }}" \
+            --password-stdin
+      - name: Push branch image to Docker Hub
+        if: contains(github.ref, 'dependabot') == false
+        run: docker push "${DOCKER_IMAGE}:${REF}"
+        env:
+          REF: ${{ needs.generate-ref.outputs.ref }}
+      - name: Push commit sha image to Docker Hub
+        if: contains(github.ref, 'dependabot') == false
+        run: docker push "${DOCKER_IMAGE}:sha-${GITHUB_SHA}"
