@@ -1,6 +1,6 @@
 name: Create Release
 env:
-  DOCKER_IMAGE: wyrihaximusgithubactions/supported-debian-linux-versions
+  DOCKER_IMAGE: ghcr.io/wyrihaximus/github-action-supported-debian-linux-versions
   MILESTONE: ${{ github.event.milestone.title }}
 on:
   milestone:
@@ -81,7 +81,7 @@ jobs:
       - name: Login to Docker Hub
         run: |
           echo "${{ secrets.HUB_PASSCODE }}" | \
-          docker login \
+          docker login ghcr.io \
             --username "${{ secrets.HUB_USERNAME }}" \
             --password-stdin
       - name: Pull source image

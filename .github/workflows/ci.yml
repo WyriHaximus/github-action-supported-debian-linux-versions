@@ -1,6 +1,6 @@
 name: Continuous Integration
 env:
-  DOCKER_IMAGE: wyrihaximusgithubactions/supported-debian-linux-versions
+  DOCKER_IMAGE: ghcr.io/wyrihaximus/github-action-supported-debian-linux-versions
   DOCKER_BUILDKIT: 1
 on:
   push:
@@ -92,7 +92,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.HUB_PASSCODE }}
         run: |
           echo "${{ secrets.HUB_PASSCODE }}" | \
-          docker login \
+          docker login ghcr.io \
             --username "${{ secrets.HUB_USERNAME }}" \
             --password-stdin
       - name: Push branch image to Docker Hub
