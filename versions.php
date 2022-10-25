@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 // Ok I lied, it's an hardcoded array for now. But diving into how to fetch this
 $versions = [];
 $versions[] = 'bullseye';
