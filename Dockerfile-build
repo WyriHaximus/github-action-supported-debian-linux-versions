@@ -1,4 +1,4 @@
-FROM wyrihaximusnet/php:8.2-nts-alpine-slim
+FROM wyrihaximusnet/php:8.2-nts-alpine-slim-root
 
 COPY versions.php /app/versions.php
 
